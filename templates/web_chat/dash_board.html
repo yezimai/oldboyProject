@@ -1,0 +1,376 @@
+{% extends 'index.html' %}
+{% block page-container %}
+<h1>聊天室</h1>|{% csrf_token %}
+
+<div>Arya_group
+
+  <!-- Nav tabs -->
+  <ul class="nav nav-tabs" role="tablist">
+    <li role="presentation" chat_type="single_contact" class="active"><a href="#contacts"  onclick="LoadContacts()" role="tab" data-toggle="tab">联系人</a></li>
+    <li role="presentation" chat_type="group_contact"><a href="#contact" onclick="LoadContacts()"  role="tab" data-toggle="tab">群组</a></li>
+    <li role="presentation"><a href="#messages"  role="tab" data-toggle="tab">Messages</a></li>
+    <li role="presentation"><a href="#settings"  role="tab" data-toggle="tab">Settings</a></li>
+  </ul>
+
+  <!-- Tab panes -->
+  <div class="tab-content">
+    <div role="tabpanel" class="tab-pane active" id="contact">
+        <div class="chat-container row">
+    <div class="chat-list col-md-3">
+        <div class="list-group">
+              <a href="#" class="list-group-item active">
+                Cras justo odio
+              </a>
+
+        </div>
+    </div>
+    <div class="chat-box col-md-9">
+
+        <div class="chat-header"></div>
+        <div class="chat-content">content</div>
+        <div class="progress">
+              <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;">
+                0%
+              </div>
+        </div>
+        <div class="chat-box-emoj">
+            <div class="col-md-5">
+                <input type="file" id="fileup" >
+            </div>
+            <div class="col-md-2">
+                <span class="glyphicon glyphicon-upload" onclick="FileUpload()"></span>
+            </div>
+        </div>
+        <div class="chat-msg-sendbox">
+            <div class="msg-box col-md-10">
+                <textarea></textarea>
+            </div>
+            <div class="msg-box-button col-md-2">
+                <button type="button" class="btn btn-success" onclick='SendMsg()'>send</button>
+            </div>
+        </div>
+    </div>
+</div>
+    </div>
+    <div role="tabpanel" class="tab-pane" id="group">...</div>
+    <div role="tabpanel" class="tab-pane" id="messages">...</div>
+    <div role="tabpanel" class="tab-pane" id="settings">...</div>
+  </div>
+
+</div>
+
+
+
+
+
+
+{% endblock %}
+
+{% block scrpit_block %}
+    <script>
+//当页面加载完成时，如果在body标签内，单机回车，按下就会触发一个事件
+    $(document).ready(function(){
+        GLOBAL_SESSION_CACHE = {
+           'single_contact':{},
+            'group_contact':{},
+        };
+        LoadContacts(); //获取用户列表
+{#        var ReFreshNewMsgs = setInterval(function () {#}
+{#            GetMsgs();#}
+{#        },3000)  //每3秒发起一个线程就执行GETMSGs()#}
+        GetMsgs();
+        $("body").delegate("textarea", "keydown", function (e) {
+            if (e.which == 13) {
+                var msg_text = $("textarea").val();
+{#                if ($.trim(msg_text).length > 0) {#}
+
+                SendMsg();
+{#                    console.log(msg_text);#}
+{#                }#}
+{#                AddSentMsgIntoBox(msg_text,;#}
+
+{#                $("textarea").val("");#}
+
+            };
+        });
+    })
+
+    function AddSentMsgIntoBox(msg_text,msg_type) {
+        var d = new Date();
+        var send_time = d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
+        if (msg_type == 'text'){
+            var msg_ele = "<div class='msg-item-sent'>" +"<p>"+"{{ request.user.userprofile.name }} &nbsp;&nbsp;"+ send_time +" </p>"+"<p>"+msg_text+"</p>"+"</div>";
+
+        }
+        else if(msg_type.startsWith("image")){
+            var msg_ele = "<div class='msg-item-sent'>" +"<p>"+"{{ request.user.userprofile.name }} &nbsp;&nbsp;"+ send_time +
+                "<div class='msg-text'><img width='300px' src='/static/" +
+                "{{ request.user.userprofile.id }}/"+msg_text+"'/></div>"+"</div>";
+
+        }
+        else {
+            var msg_ele = "<div class='msg-item-sent'>" +"<p>"+"{{ request.user.userprofile.name }} &nbsp;&nbsp;"+ send_time +" </p>"+
+                "<p>"+"<a href='/static/"+"{{ request.user.userprofile.id }}/"+msg_text+"' target='_blank'>发送了文件，点我查看</a>"+"</p>";
+
+        }
+
+
+        $(".chat-content").append(msg_ele);
+        $(".chat-content").animate({    //当有新的信息时，用animate定义一个动作scrollTop，然后找到对面的标签后，
+            // 取出标签的第0个元素也就是自己，在添加一个事件
+            scrollTop:$('.chat-content')[0].scrollHeight},500
+
+        );
+
+    }
+
+    function LoadContacts() {
+        $.get("{% url 'load_contact_list' %}",function(callback){
+            //console.log(callback);
+            //后端传来的json格式，先要进行转换
+            var data = JSON.parse(callback);
+            var current_contact_item = $(".nav-tabs li").filter(".active")[0];  //找到当前li标签下，有一个样式class=active的标签
+            var current_type = $(current_contact_item).attr("chat_type");       //然后找到标签中chat_type的值是单人还是群组聊天
+                console.log('cuuuuuuuuuu',current_type)                         //注意这里找样式的写法有一个filter(.*）
+            $(".chat-list .list-group").empty()                                 //先将已存在的联系人列表清空在导入新的
+            $.each(data[current_type],function (index,ele) {
+                var ele = "<a href='#' class='list-group-item' contact_name='"+ele.name+"' contact_id='"+ele.id+"' contact_type='"+current_type+"' onclick='OpenDialogBox(this)'>"+ele.name+"<span class='badge'>0</span></a>"
+                $(".chat-list .list-group").append(ele)
+            });
+        });
+
+    }
+    function GetCSRF() {
+        return $("input[name='csrfmiddlewaretoken']").val()
+
+    }
+
+    function OpenDialogBox(ele) {
+        DumpsSession();    //把当前的聊天窗口的信息保存html
+        $(ele).addClass("active");
+        $(ele).siblings().removeClass("active");
+        var contact_id = $(ele).attr('contact_id');
+        var contact_type = $(ele).attr('contact_type');
+        var contact_name = $(ele).attr('contact_name');
+        var Text = "<h4><span contact_id='"+contact_id+"'"+"contact_type='"+contact_type+"'>talking with "+contact_name+"</span></h4>";
+        $(".chat-header").html(Text);    //加载出聊天窗口的标签头部，正在和谁聊天
+        var HTML = LoadSession(contact_id,contact_type);    //加载出用户之前的聊天记录html
+        $(".chat-content").html(HTML);
+        //将未读消息数清空
+        var unread_nums = $(ele).find('span')[0];   //当前元素ele传过来的是一个含有a标签的元素，cha-list。
+                                                    // 注意这里找到的是一个集合，哪怕只有一个元素，所以有“[0]”
+        $(unread_nums).text(0);                     //对话窗口打开后，消息数量置为0
+        $(unread_nums).css('display','none');       //将这个a标签隐藏，注意这里的写法
+
+    }
+    function LoadSession(contact_id,contact_type) {     //判断缓存的session中有没有当前contact_id的内容,
+        if (GLOBAL_SESSION_CACHE[contact_type].hasOwnProperty(contact_id)){ //注意这里面保存session的格式为session={'contact_type':{'contact_id'：内容}}
+            var session_html = GLOBAL_SESSION_CACHE[contact_type][contact_id]; //所以写法用的是hasOwnProperty直到最下层的key
+
+        }else{
+            var session_html = '';
+        }
+{#        $(".chat-content").html(session_html);#}
+        return session_html;
+    }
+
+    function DumpsSession(){ //获取当前的id，type后将当前的html会话页面保存
+        var current_type = $(".chat-header span").attr('contact_type');
+        var current_id = $(".chat-header span").attr('contact_id');
+{#        console.log($(".chat-content").html())#}
+        console.log('dfdfdf',current_id)
+        if(current_id){
+            GLOBAL_SESSION_CACHE[current_type][current_id] = $(".chat-content").html()
+{#            console.log('1111',GLOBAL_SESSION_CACHE)#}
+
+        }
+
+    }
+
+    function SendMsg() {    //获取当前的id，type后，将消息插入得到一个包含会话消息的字典，然后将字典转格式后post给后台
+        var msg_text = $("textarea").val();
+        var contact_id = $('.chat-header h4 span').attr('contact_id');
+        console.log('bbbbbbbbb'.msg_text)
+        var contact_type = $('.chat-header h4 span').attr('contact_type');
+        if ($.trim(msg_text).length > 0){
+            var msg_dic = {
+                'to':contact_id,
+                'contact_type':contact_type,
+                'from':"{{ request.user.userprofile.id }}",
+                'from_name':"{{ request.user.userprofile.name }}",
+                'msg':msg_text
+            };
+            $.post("{% url 'send_msg' %}",{'data':JSON.stringify(msg_dic),'csrfmiddlewaretoken':GetCSRF()},function(callback){
+            console.log(callback)
+            });
+            AddSentMsgIntoBox(msg_text,'text');
+            $("textarea").val('');
+        }
+
+
+    }
+
+    function GetMsgs(){         //发起一个get请求到后端，返回值为callback
+        $.get("{% url 'get_msg' %}",function(callback){
+            console.log("new msgs:"+callback);
+            var msg_list = JSON.parse(callback);
+            var current_session_type = $('.chat-header h4 span').attr('contact_type')
+{#            console.log("1234"+current_session_type)#}
+            var current_session_id = $('.chat-header h4 span').attr('contact_id')
+{#            console.log("1234"+current_session_id)#}
+            $.each(msg_list,function (index,msg_item) {
+                if (current_session_type == "single_contact") {
+                    if (current_session_type == msg_item.contact_type && current_session_id == msg_item.from) {
+                        AddRevMsgIntoBox(msg_item);
+                    }
+
+
+                    else {  //如果当前页面不是要接受消息的页面的话，就吧之前保存的session导入进来，把新消息加进去
+                        NOTmainpage(msg_item);
+                    }
+                }
+                else {
+                    if (current_session_type == msg_item.contact_type) {
+                        if (current_session_id == msg_item.to) {
+                            AddRevMsgIntoBox(msg_item);
+                        }
+                        else{
+                            var old_session = LoadSession(msg_item.to,msg_item.contact_type);
+                            var new_session = GenerateNewMsg(msg_item);
+                            var whole_session = old_session+new_session;
+                            DumpMsgWithoutOpen(msg_item.to,msg_item.contact_type,whole_session);
+                            UpdateUnreadMsg(msg_item.to);
+                        }
+                    }
+                }
+            });//end each
+            GetMsgs();
+
+        });//end get
+        //GetMsgs();
+
+    }
+
+    function NOTmainpage(msg_item){   //如果没有打开当前的会话聊天窗口
+        var old_session = LoadSession(msg_item.from,msg_item.contact_type);
+        var new_session = GenerateNewMsg(msg_item);
+        var whole_session = old_session+new_session;
+        DumpMsgWithoutOpen(msg_item.from,msg_item.contact_type,whole_session);
+        UpdateUnreadMsg(msg_item.from);
+
+    }
+
+
+
+    function UpdateUnreadMsg(id) {   //未读消息，先找到这个对应的id的标签，然后找到span标签元素，
+        //注意他是一个集合取第一个元素，注意写法,不能直接写成a[contact_id='id']，要拼接字符串。
+        var msg_ele_num = $(".chat-list a[contact_id='"+id+"']").find('span')[0];
+        $(msg_ele_num).text(parseInt($(msg_ele_num).text())+1);//将取出来的消息元素转换成int,
+        //parseInt，然后将数量加1
+        $(msg_ele_num).show();  //此处为将消息的数量显示出来，之前将消息点出来后，将span标签的消息数量清零
+{#        console.log('aaaa',msg_ele_num)#}
+
+
+    }
+    function DumpMsgWithoutOpen(id,type,item) {
+        if(id){
+            GLOBAL_SESSION_CACHE[type][id] = item
+
+
+        }
+
+
+    }
+    function GenerateNewMsg(msg_item){
+        var msg_ele = "<div class='msg-item-rev'>" +"<p>"+msg_item.from_name+"&nbsp;&nbsp;"+ msg_item.timestamp +" </p>"+"<p>"+msg_item.msg+"</p>"+"</div>";
+        return msg_ele
+    }
+
+
+
+    function AddRevMsgIntoBox(msg_item) {
+        var msg_ele = "<div class='msg-item-rev'>" +"<p>"+msg_item.from_name+"&nbsp;&nbsp;"+ msg_item.timestamp +" </p>"+"<p>"+msg_item.msg+"</p>"+"</div>";
+        $(".chat-content").append(msg_ele);
+        $(".chat-content").animate({    //当有新的信息时，用animate定义一个动作scrollTop，然后找到对面的标签后，
+            // 取出标签的第0个元素也就是自己，在添加一个事件
+            scrollTop:$('.chat-content')[0].scrollHeight},500
+
+        );
+    }
+
+    function FileUpload(){
+        var formData = new FormData();   //上传时，先新建一个FormData对象，然后将文件按这种形式添加进去，在发送一个ajax请求
+        formData.append('file',$('#fileup')[0].files[0]);
+        $.ajax({
+                url:"{% url 'file_upload' %}",
+                type:'POST',
+                data:formData,
+                processData:false, //默认会把psot请求，把参数压缩成urlinto，告诉jQuery不用把数据压缩成
+                contentType:false, //不用再请求头设置，这两个在发送文件时必要参数
+{#                csrfmiddlewaretoken:GetCSRF(),#}
+                susscess : function (data) {
+                    console.log(data);
+                }
+
+                }
+        )
+        GetFileUploadProgress($('#fileup')[0].files[0])
+    }
+
+    function GetFileUploadProgress(file_obj) {
+        var UploadProgressRefresh = setInterval(function () {
+            $.getJSON("{% url 'file_upload_progess' %}",{filename:file_obj.name},function(callback){
+            console.log("upload progess"+callback.recv_size);
+            if (callback.recv_size == file_obj.size){ //当接受到的文件大小和上传的文件大小相等时，
+                clearInterval(UploadProgressRefresh);  //清楚定时器功能
+                $.get("{% url 'DelFileCache' %}",{cache_name:file_obj.name},function(callback){
+                    console.log(callback);
+                });
+                AddSentMsgIntoBox(file_obj.name,file_obj.type)
+            }
+            var current_percent = (callback.recv_size/file_obj.size)*100+"%";
+            $(".progress-bar").css("width",current_percent);
+            $(".progress-bar").text(current_percent);
+        })
+
+            },1000
+
+        )
+
+    }
+
+    //下面2个是从博客copy来，然后每次发送ajax请求就自动带上CSRF
+    function getCookie(name) {
+    var cookieValue = null;
+    if (document.cookie && document.cookie != '') {
+        var cookies = document.cookie.split(';');
+        for (var i = 0; i < cookies.length; i++) {
+            var cookie = jQuery.trim(cookies[i]);
+            // Does this cookie string begin with the name we want?
+            if (cookie.substring(0, name.length + 1) == (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+    var csrftoken = getCookie('csrftoken');
+
+    function csrfSafeMethod(method) {
+    // these HTTP methods do not require CSRF protection
+    return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
+}
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (!csrfSafeMethod(settings.type) && !this.crossDomain) {
+                xhr.setRequestHeader("X-CSRFToken", csrftoken);
+        }
+    }
+});
+
+
+    </script>
+
+
+{% endblock %}

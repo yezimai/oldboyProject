@@ -1,0 +1,103 @@
+{% extends 'index.html' %}
+{% load xx %}
+{% block page-container %}
+    {% get_url_parse request.get_full_path %}
+    <div class="article-detail"><i class="glyphicon glyphicon-menu-down" aria-hidden="true"></i>
+        <h1>{{ articles.title }}</h1><span class="glyphicon glyphicon-menu-down" aria-hidden="true">123</span>
+        <div class="article-detail-author">
+            <h4>作者：{{ articles.author }}</h4>
+            <span>{{ articles.publish_date }}</span><i class="glyphicon glyphicon-comment"></i>{{ articles.comment_set.all.count }}
+        </div>
+        <hr>
+        <img src="{{ articles.head_img }}" alt="">
+        <p>{{ articles.content|safe }}</p>
+
+    <span class="pull-right">HOHOHO</span>
+        <hr style="margin-top:17px">
+    </div>
+    <div>
+        <div class="hot-comment">发表评论</div>
+        {% if  request.user.is_authenticated  %}
+            <textarea class="form-control" cols="30" rows="3"></textarea>
+            <button type="button" id='button1' class="btn btn-primary pull-right button1">发表</button>
+        {% else %}
+            <div class="jumbotron">
+                <h4 class="text-center"><a  class="btn-link" href="{% url 'login' %}?next={{ request.path }}">登录</a>后评论</h4>
+            </div>
+        {% endif %}
+    </div>
+        <hr style="margin-top:57px">
+        <div  style="margin-top: 10px" class="hot-comment">热评</div>
+        <hr>
+        <div class="comment-detail">
+            {{ articles.comment_set.select_related.values}}
+{#            {% content_tag articles.comment_set.select_related %}#}
+
+{#        这个就是load一个自定义的tag来加载评论#}
+        </div>
+
+
+{% endblock %}
+
+{% block scrpit_block %}
+    <script>
+    function GetComments(){
+        $.get("{% url 'get_comments' articles.id %}",function(callback){
+            console.log(callback)
+
+            $('.comment-detail').html(callback)
+        })
+    }
+
+
+    $(document).ready(function(){
+{#        GetComments()#}
+        $('#button1').click(function(){
+            var new_comment = $('textarea').val()
+            if ($.trim(new_comment).length < 2){
+                alert('评论不能少于5个字')
+            }else{
+                $.post('{% url 'post_comment' %}',{'article_id':"{{ articles.id }}",'comment':new_comment},
+                    function(callback){
+{#                    GetComments()#}
+                    $('textarea').val('')
+                })//end post
+
+            }//end if
+
+        }
+
+        )
+    })
+
+    function getCookie(name) {
+        var cookieValue = null;
+        if (document.cookie && document.cookie != '') {
+            var cookies = document.cookie.split(';');
+            for (var i = 0; i < cookies.length; i++) {
+                var cookie = jQuery.trim(cookies[i]);
+                // Does this cookie string begin with the name we want?
+                if (cookie.substring(0, name.length + 1) == (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+}
+    var csrftoken = getCookie('csrftoken');
+
+    function csrfSafeMethod(method) {
+            // these HTTP methods do not require CSRF protection
+            return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
+        }
+                $.ajaxSetup({
+                    beforeSend: function(xhr, settings) {
+                        if (!csrfSafeMethod(settings.type) && !this.crossDomain) {
+                        xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                }
+            }
+        });
+    </script>
+
+{% endblock %}

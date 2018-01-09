@@ -1,0 +1,33 @@
+{% extends 'index.html' %}
+{% block js_head %}
+    <script src="/static/ckeditor/ckeditor.js"></script>
+{% endblock %}
+{% block page-container %}
+    <div>
+        {% if new_article_obj %}
+            <h2>文章{{ new_article_obj.title }}已发表，<a href="{% url 'article_detail' new_article_obj.id %}">点击查看</a></h2>
+        {% else %}
+            <form enctype="multipart/form-data" class="form-signin" action="{% url 'new_article' %}" method="post">{% csrf_token %}
+            <input type="text" name="title" class="form-control" placeholder="文章标题">
+
+            <select name="category_id" class="form-control">
+                {% for category in category_list %}
+                    <option value="{{ category.id }}">{{ category.name }}</option>
+                {% endfor %}
+            </select>
+            <input type="text" name="summary" class="form-control" placeholder="文章概要">
+            <input type="file" name="head_img">图片
+            <textarea id="ckedit" name="content" ></textarea>
+             <br>
+            <input type="submit" class="pull-right">
+
+        </form>
+        {% endif %}
+    </div>
+{% endblock %}
+{% block scrpit_block %}
+    <script >
+        CKEDITOR.replace('ckedit')
+
+    </script>
+{% endblock %}
